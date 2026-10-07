@@ -4,6 +4,8 @@
 name: mac-build
 
 on:
+  push:
+    branches: [claude/lightcraft-ai-window-mask-8hmmer]
   workflow_dispatch:
     inputs:
       arch:
@@ -30,9 +32,9 @@ jobs:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
         with:
-          key: mac-build-${{ inputs.arch }}
+          key: mac-build-${{ inputs.arch || 'aarch64' }}
       - name: Build and package (ad-hoc signed)
-        run: packaging/macos/package.sh --arch "${{ inputs.arch }}"
+        run: packaging/macos/package.sh --arch "${{ inputs.arch || 'aarch64' }}"
       - uses: actions/upload-artifact@v4
         with:
           name: lightcraft-macos
