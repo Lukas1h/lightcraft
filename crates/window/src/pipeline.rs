@@ -31,11 +31,8 @@ pub fn decode_png_gray(bytes: &[u8]) -> Result<Gray> {
             f32::from(px.get(c).copied().unwrap_or(0))
         }
     };
-    let data: Vec<f32> = buf
-        .chunks_exact(channels * bytes_per)
-        .take(w * h)
-        .map(|px| (0..colour).map(|c| sample(px, c)).sum::<f32>() / colour as f32 / max)
-        .collect();
+    let data: Vec<f32> =
+        buf.chunks_exact(channels * bytes_per).take(w * h).map(|px| (0..colour).map(|c| sample(px, c)).sum::<f32>() / colour as f32 / max).collect();
     Gray::from_vec(w, h, data).ok_or_else(|| Error::BadResponse("the mask image is incomplete".into()))
 }
 

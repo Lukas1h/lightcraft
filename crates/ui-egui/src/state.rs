@@ -294,6 +294,9 @@ pub struct UiState {
     /// A SAM 3 download was started from the app (to report its end once).
     #[serde(skip)]
     pub sam_downloading: bool,
+    /// Settings ▸ AI Window while open (holds the typed API key; never serialized).
+    #[serde(skip)]
+    pub window_setup: Option<crate::panels::window_ai::Draft>,
     /// When to start the zoomed-in detail pass of an AI mask (app time) and which mask: set by
     /// each click or description, so the pass runs once the clicking stops.
     #[serde(skip)]
@@ -584,6 +587,7 @@ impl Default for UiState {
             describe: None,
             detail_due: None,
             sam_downloading: false,
+            window_setup: None,
             renaming_component: None,
             quit: false,
             dragging_photos: None,

@@ -54,6 +54,7 @@ fn kind_label(s: &MaskShape) -> (&'static str, Icon) {
         MaskShape::Background => ("Background", Icon::Subject),
         MaskShape::Object { .. } => ("Object", Icon::Subject),
         MaskShape::Prompt { .. } => ("Describe", Icon::Subject),
+        MaskShape::Window { .. } => ("Window", Icon::Sky),
         MaskShape::People { .. } => ("People", Icon::Subject),
         MaskShape::Landscape { .. } => ("Landscape", Icon::Sky),
     }
@@ -76,11 +77,12 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
     egui::Frame::NONE.inner_margin(egui::Margin { left: 24, right: 22, top: 0, bottom: 10 }).show(ui, |ui| {
         ui.label(egui::RichText::new(crate::i18n::tr("Create New Mask")).color(t.text_dim));
         ui.add_space(6.0);
-        let tiles: [(&str, &str, Icon); 10] = [
+        let tiles: [(&str, &str, Icon); 11] = [
             ("object", "Object", Icon::Subject),
             ("prompt", "Describe", Icon::Subject),
             ("subject", "Subject", Icon::Subject),
             ("sky", "Sky", Icon::Sky),
+            ("window", "Window", Icon::Sky),
             ("background", "Background", Icon::Subject),
             ("brush", "Brush", Icon::Brush),
             ("linear", "Linear", Icon::Linear),
@@ -107,6 +109,15 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
                         }
                         "object" => start_object(app, ui.ctx(), "new"),
                         "prompt" => start_describe(app, "new"),
+                        "window" => {
+                            // cloud model: off until the user has read the notice and set a key
+                            let s = &app.session.window;
+                            if !s.settings.enabled || !s.settings.notice_accepted {
+                                super::window_ai::open(app);
+                            } else if let Err(e) = app.run("mask.addWindow", json!({})) {
+                                app.toast_error(ui.ctx(), e.to_string());
+                            }
+                        }
                         "brush" | "linear" | "radial" => {
                             app.ui.tool = kind.to_string();
                             if *kind != "brush" {
@@ -124,6 +135,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
             }
         });
         describe_field(app, ui, true);
+        window_status(app, ui);
         let seg = &app.session.segmenter;
         let status = if seg.analyzing() {
             Some("Analyzing the photo for AI masks…")
@@ -680,6 +692,30 @@ pub(crate) fn begin_ai(app: &mut LightcraftApp, kind: &str, op: &str) -> Result<
             app.ui.describe = Some((op.to_string(), String::new()));
             Ok(serde_json::Value::Null)
         }
+    }
+}
+
+/// AI Window: progress of the running batch with Cancel, and the settings link.
+fn window_status(app: &mut LightcraftApp, ui: &mut egui::Ui) {
+    let t = Tokens::get(ui.ctx());
+    let st = app.session.window.status();
+    if st.running {
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            let pct = if st.total > 0 { st.done as f32 / st.total as f32 } else { 0.0 };
+            let r = ui.add(egui::ProgressBar::new(pct).desired_width(ui.available_width() - 70.0).text(format!("Windows {}/{}", st.done, st.total)));
+            register(ui.ctx(), "maskWindowProgress", r.rect);
+            if text_button(ui, "maskWindowCancel", crate::i18n::tr("Cancel"), false).clicked() {
+                let _ = app.run("window.cancel", json!({}));
+            }
+        });
+        for e in &st.errors {
+            ui.label(egui::RichText::new(&e.error).color(t.caution));
+        }
+        ui.ctx().request_repaint_after(std::time::Duration::from_millis(250));
+    }
+    if text_button(ui, "maskWindowSettings", crate::i18n::tr("AI Window settings…"), false).clicked() {
+        super::window_ai::open(app);
     }
 }
 

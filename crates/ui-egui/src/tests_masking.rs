@@ -675,3 +675,58 @@ fn ai_masks_without_the_model_offer_the_download() {
     assert!(develop(&h).masks.is_empty());
     assert!(t.elapsed() < SETTLE, "{:?}", t.elapsed());
 }
+
+/// AI Window is opt-in: the Window tile opens the notice/settings instead of calling anything, the
+/// typed key never reaches the settings file or the debug output, and after opting in the tile
+/// runs the command against the (replayed) service and the progress UI goes away again.
+#[test]
+fn window_mask_is_opt_in_and_the_key_stays_out_of_the_ui_state() {
+    use lightcraft_window::Error;
+    use lightcraft_window::gemini::Transport;
+    struct Count(std::sync::atomic::AtomicUsize);
+    impl Transport for Count {
+        fn post(&self, _: &str, _: &[u8], _: &std::sync::atomic::AtomicBool) -> Result<(u16, Vec<u8>), Error> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok((200, br#"{"candidates":[{"content":{"parts":[{"text":"no window"}]},"finishReason":"STOP"}]}"#.to_vec()))
+        }
+    }
+    let mut h = detail("panel.masking");
+    let count = std::sync::Arc::new(Count(Default::default()));
+    h.app.session.window.transport = Some(count.clone());
+    let file = std::env::temp_dir().join(format!("lc-ui-window-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&file);
+    h.app.session.window.settings_file = Some(file.clone());
+    let r = h.request("ui.clickWidget", json!({"id": "maskNew:window"}), T);
+    assert_eq!(r["ok"], true, "{r}");
+    assert!(h.app.ui.window_setup.is_some(), "the notice opens first");
+    assert_eq!(count.0.load(std::sync::atomic::Ordering::SeqCst), 0, "nothing was sent");
+    assert!(develop(&h).masks.is_empty());
+    // type a key, accept, enable, save
+    if let Some(d) = h.app.ui.window_setup.as_mut() {
+        d.key = "typed-secret-key".into();
+        d.accept = true;
+        d.settings.enabled = true;
+    }
+    assert!(!format!("{:?}", h.app.ui.window_setup).contains("typed-secret-key"));
+    h.step();
+    let r = h.request("ui.clickWidget", json!({"id": "button:windowSave"}), T);
+    assert_eq!(r["ok"], true, "{r}");
+    assert!(h.app.ui.window_setup.is_none(), "closed after saving");
+    assert!(h.app.session.window.settings.enabled && h.app.session.window.settings.notice_accepted);
+    let saved = std::fs::read_to_string(&file).unwrap_or_default();
+    assert!(saved.contains("\"enabled\": true") && !saved.contains("typed-secret-key"), "{saved}");
+    // now the tile runs it (the replayed answer has no window → no mask, no error dialog)
+    let r = h.request("ui.clickWidget", json!({"id": "maskNew:window"}), T);
+    assert_eq!(r["ok"], true, "{r}");
+    let started = std::time::Instant::now();
+    while started.elapsed() < std::time::Duration::from_secs(120) {
+        h.step();
+        if !h.app.session.window.busy() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(25));
+    }
+    assert_eq!(count.0.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert!(develop(&h).masks.is_empty(), "a photo without a window gets no mask");
+    let _ = std::fs::remove_file(&file);
+}

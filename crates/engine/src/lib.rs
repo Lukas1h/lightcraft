@@ -35,9 +35,9 @@ pub mod presets;
 pub mod rename;
 pub mod segment;
 pub mod sidecar;
-pub mod window;
 pub mod smart;
 mod view;
+pub mod window;
 
 use std::sync::Arc;
 

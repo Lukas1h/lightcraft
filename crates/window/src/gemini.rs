@@ -117,11 +117,8 @@ fn api_error(body: &[u8]) -> (String, String) {
     if message.chars().count() > 300 {
         message = message.chars().take(300).collect::<String>() + "…";
     }
-    let reason = e
-        .get("details")
-        .and_then(Value::as_array)
-        .and_then(|d| d.iter().find_map(|x| x.get("reason").and_then(Value::as_str)))
-        .unwrap_or("");
+    let reason =
+        e.get("details").and_then(Value::as_array).and_then(|d| d.iter().find_map(|x| x.get("reason").and_then(Value::as_str))).unwrap_or("");
     (if status.is_empty() { reason.to_string() } else { status }, message)
 }
 
@@ -204,7 +201,13 @@ pub fn last_image(v: &Value) -> Result<Option<Vec<u8>>, Error> {
 pub fn text(v: &Value) -> String {
     v.pointer("/candidates/0/content/parts")
         .and_then(Value::as_array)
-        .map(|p| p.iter().filter(|x| x.get("thought").and_then(Value::as_bool) != Some(true)).filter_map(|x| x.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join(""))
+        .map(|p| {
+            p.iter()
+                .filter(|x| x.get("thought").and_then(Value::as_bool) != Some(true))
+                .filter_map(|x| x.get("text").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join("")
+        })
         .unwrap_or_default()
 }
 

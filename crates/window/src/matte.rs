@@ -304,7 +304,7 @@ pub fn keep_regions(soft: &Gray, labels: &Labels, keep: &[bool]) -> Gray {
 /// Erode the matte by `radius` pixels (fractional allowed): the minimum over a ring of bilinear
 /// samples, so soft edge ramps shift inward by exactly `radius` and the result stays soft.
 pub fn inset(m: &Gray, radius: f32) -> Gray {
-    if !(radius > 0.0) || !radius.is_finite() {
+    if radius.is_nan() || radius <= 0.0 || radius.is_infinite() {
         return m.clone();
     }
     const DIRS: usize = 16;

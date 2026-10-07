@@ -24,6 +24,7 @@
 
 mod alloc_release;
 mod control_server;
+mod keychain;
 #[cfg(target_os = "macos")]
 mod native_menu;
 
@@ -511,6 +512,11 @@ fn main() -> eframe::Result {
                 std::env::var_os("LIGHTCRAFT_SAM3_DIR").map(std::path::PathBuf::from).or_else(|| config_dir().map(|d| d.join("models").join("sam3")));
             // the user's own download locations, one base URL per line (LIGHTCRAFT_SAM3_MIRRORS too)
             session.segmenter.mirrors_file = config_dir().map(|d| d.join("models").join("sam3-mirrors.txt"));
+            // AI Window masks: opt-in settings (the API key is never in this file)
+            if let Some(dir) = config_dir() {
+                session.window.load_settings(dir.join("ai-window.json"));
+                session.window.keys = std::sync::Arc::new(keychain::Keychain::default());
+            }
             let mut app = LightcraftApp::new(session, services());
             if let Some(ui) = prefs {
                 app.ui = ui;

@@ -483,7 +483,7 @@ mod tests {
     fn parses_urls() {
         let u = Url::parse("https://cdn.example.com/models/sam3/model.safetensors?sig=1#x").unwrap();
         assert_eq!((u.tls, u.host.as_str(), u.port, u.path.as_str()), (true, "cdn.example.com", 443, "/models/sam3/model.safetensors?sig=1"));
-                let u = Url::parse("http://127.0.0.1:8080").unwrap();
+        let u = Url::parse("http://127.0.0.1:8080").unwrap();
         assert_eq!((u.tls, u.port, u.path.as_str()), (false, 8080, "/"));
         let u = Url::parse("http://[::1]:9/a").unwrap();
         assert_eq!((u.host.as_str(), u.port), ("::1", 9));

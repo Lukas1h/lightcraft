@@ -22,6 +22,7 @@ pub mod second;
 pub mod settings;
 pub mod strip;
 pub mod topbar;
+pub mod window_ai;
 
 use egui::{Align2, Rect, pos2, vec2};
 

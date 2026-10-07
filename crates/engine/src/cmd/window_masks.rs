@@ -4,7 +4,7 @@ use lightcraft_catalog::PhotoId;
 use serde_json::{Value, json};
 
 use super::{CommandSpec, always, bad, cmd, f64_or, has_selection};
-use crate::{Result, Session};
+use crate::Session;
 
 /// The photos a command applies to: `ids` if given, else the selection, else the active photo.
 pub(crate) fn target_ids(s: &Session, p: &Value) -> Vec<PhotoId> {

@@ -66,7 +66,8 @@ fn other_failures_are_not_retried_and_never_echo_the_key() {
     assert_eq!(t.calls.lock().unwrap().len(), 1);
     assert!(err.to_string().contains("API key was not accepted"));
     // the blocked-key service error is retried (it clears)
-    let blocked = json!({ "error": { "code": 403, "status": "PERMISSION_DENIED", "message": "x", "details": [{ "reason": "API_KEY_SERVICE_BLOCKED" }] } });
+    let blocked =
+        json!({ "error": { "code": 403, "status": "PERMISSION_DENIED", "message": "x", "details": [{ "reason": "API_KEY_SERVICE_BLOCKED" }] } });
     let t = Replay::new(vec![(403, blocked), (200, json!({}))]);
     call(&t, &NoSleep::default(), "m", &json!({}), &AtomicBool::new(false)).unwrap();
     assert_eq!(t.calls.lock().unwrap().len(), 2);

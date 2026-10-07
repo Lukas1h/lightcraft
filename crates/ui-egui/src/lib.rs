@@ -206,6 +206,7 @@ impl LightcraftApp {
     pub fn new(mut session: Session, services: Services) -> Self {
         // AI mask requests run on the model's worker; frames apply their results (never wait)
         session.segmenter.background = true;
+        session.window.background = true;
         Self {
             session,
             ui: UiState::default(),
@@ -374,6 +375,17 @@ impl LightcraftApp {
         }
         if let Some(e) = polled.messages.into_iter().last() {
             self.ai_error(ctx, e, None);
+        }
+        // AI Window masks: apply finished photos, start the next ones, show errors
+        let window = self.session.window_poll();
+        if window.changed {
+            ctx.request_repaint();
+        }
+        if let Some(e) = window.messages.into_iter().last() {
+            self.toast_error(ctx, e);
+        }
+        if self.session.window.busy() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(250));
         }
         let seg = &self.session.segmenter;
         if seg.busy() || seg.pending_clicks().is_some() {
@@ -777,6 +789,7 @@ impl LightcraftApp {
             panels::notices::show(self, &ctx);
             panels::dialogs::show(self, &ctx);
             panels::library_problem::show(self, &ctx);
+            panels::window_ai::show(self, &ctx);
             panels::toast(self, &ctx);
             self.widgets = widgets::take_registry(&ctx);
             self.end_frame(t0);
@@ -816,6 +829,7 @@ impl LightcraftApp {
         panels::notices::show(self, &ctx);
         panels::dialogs::show(self, &ctx);
         panels::library_problem::show(self, &ctx);
+        panels::window_ai::show(self, &ctx);
         import::progress(self, &ctx);
         import::scan_progress(self, &ctx);
         export_task::poll(self, &ctx);

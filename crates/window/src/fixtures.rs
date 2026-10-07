@@ -106,10 +106,14 @@ pub fn png_of(m: &Gray) -> Vec<u8> {
         enc.set_color(png::ColorType::Rgb);
         enc.set_depth(png::BitDepth::Eight);
         let mut w = enc.write_header().unwrap();
-        let data: Vec<u8> = m.data.iter().flat_map(|v| {
-            let b = (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
-            [b, b, b]
-        }).collect();
+        let data: Vec<u8> = m
+            .data
+            .iter()
+            .flat_map(|v| {
+                let b = (v.clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
+                [b, b, b]
+            })
+            .collect();
         w.write_image_data(&data).unwrap();
     }
     out

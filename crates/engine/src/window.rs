@@ -261,7 +261,8 @@ impl Rgb {
     fn resized(&self, w: usize, h: usize) -> Rgb {
         let mut data = vec![0u8; w * h * 3];
         let (sx, sy) = (self.w as f32 / w as f32, self.h as f32 / h as f32);
-        let at = |x: usize, y: usize, c: usize| f32::from(self.data.get((y.min(self.h - 1) * self.w + x.min(self.w - 1)) * 3 + c).copied().unwrap_or(0));
+        let at =
+            |x: usize, y: usize, c: usize| f32::from(self.data.get((y.min(self.h - 1) * self.w + x.min(self.w - 1)) * 3 + c).copied().unwrap_or(0));
         for y in 0..h {
             let fy = ((y as f32 + 0.5) * sy - 0.5).max(0.0);
             let (y0, ty) = (fy as usize, fy.fract());
@@ -305,7 +306,8 @@ impl Rgb {
 
     fn jpeg(&self) -> lightcraft_window::Result<Vec<u8>> {
         let img = EncodeImage::new(self.w as u32, self.h as u32, 3, Samples::U8(&self.data));
-        encode_jpeg(&img, 95, ChromaSubsampling::S444, &EncodeMeta::default()).map_err(|e| lightcraft_window::Error::Other(format!("couldn't encode the preview: {e}")))
+        encode_jpeg(&img, 95, ChromaSubsampling::S444, &EncodeMeta::default())
+            .map_err(|e| lightcraft_window::Error::Other(format!("couldn't encode the preview: {e}")))
     }
 }
 
@@ -370,7 +372,9 @@ fn run_work(w: Work) {
         )
         .ok_or("the photo has an unusable size")?;
         let shot = Shot { full, main, luma };
-        lightcraft_window::run::find_windows(&shot, transport.as_ref(), sleeper.as_ref(), &settings, &cancel).map(|f| f.matte).map_err(|e| e.to_string())
+        lightcraft_window::run::find_windows(&shot, transport.as_ref(), sleeper.as_ref(), &settings, &cancel)
+            .map(|f| f.matte)
+            .map_err(|e| e.to_string())
     }))
     .unwrap_or_else(|_| Err("the window mask worker failed unexpectedly".into()));
     let _ = reply.send(Outcome { photo, result });
@@ -441,7 +445,13 @@ impl Session {
             None => {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    let key = self.window.keys.get().map_err(crate::EngineError::Other)?.ok_or(lightcraft_window::Error::NoKey).map_err(|e| crate::EngineError::Other(e.to_string()))?;
+                    let key = self
+                        .window
+                        .keys
+                        .get()
+                        .map_err(crate::EngineError::Other)?
+                        .ok_or(lightcraft_window::Error::NoKey)
+                        .map_err(|e| crate::EngineError::Other(e.to_string()))?;
                     Arc::new(lightcraft_window::net::HttpTransport::new(&key).map_err(|e| crate::EngineError::Other(e.to_string()))?)
                 }
                 #[cfg(target_arch = "wasm32")]
@@ -489,11 +499,9 @@ impl Session {
         loop {
             let Some(run) = self.window.run.as_ref() else { return };
             let cancelled = run.cancel.load(Ordering::Relaxed);
-            if cancelled {
-                if let Some(r) = self.window.run.as_mut() {
-                    r.done += r.queue.len();
-                    r.queue.clear();
-                }
+            if cancelled && let Some(r) = self.window.run.as_mut() {
+                r.done += r.queue.len();
+                r.queue.clear();
             }
             let Some(run) = self.window.run.as_ref() else { return };
             if run.queue.is_empty() && run.in_flight.is_empty() {
@@ -586,7 +594,12 @@ impl Session {
     /// other components and adjustments), or creates the mask. Other masks are never touched.
     fn window_store(&mut self, photo: PhotoId, m: &Gray, inset: f64) -> Result<(), String> {
         let mut d = (*self.develop_of(photo).ok_or("the photo was removed")?).clone();
-        let edge = d.masks.iter().flat_map(|k| &k.components).find_map(|c| if let MaskShape::Window { edge, .. } = c.shape { Some(edge) } else { None }).unwrap_or(0.0);
+        let edge = d
+            .masks
+            .iter()
+            .flat_map(|k| &k.components)
+            .find_map(|c| if let MaskShape::Window { edge, .. } = c.shape { Some(edge) } else { None })
+            .unwrap_or(0.0);
         let shape = window_shape(m, inset, edge);
         let existing = d.masks.iter_mut().find_map(|k| k.components.iter_mut().find(|c| is_window(c)));
         match existing {
