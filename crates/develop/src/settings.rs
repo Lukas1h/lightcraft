@@ -800,6 +800,22 @@ pub enum MaskShape {
         #[serde(default, skip_serializing_if = "is_zero")]
         edge: f64,
     },
+    /// Window glass (the AI Window mask, `lightcraft-window`): `seg` is the soft matte the
+    /// model's answer was cleaned up into, with the inset already applied; `source` is the same
+    /// matte before the inset, so the Inset slider can redo it without calling the model again.
+    /// Both are stored, so rendering, syncing and copying the mask never need the network.
+    Window {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        seg: Option<crate::SegMask>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source: Option<crate::SegMask>,
+        /// Inset in pixels of a 6000 px wide frame (scaled with the frame's width).
+        #[serde(default)]
+        inset: f64,
+        /// Edge −100..100, as for `Object`.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        edge: f64,
+    },
     People {
         person: u32,
         parts: Vec<String>,

@@ -3105,6 +3105,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "lightcraft-window"
+version = "0.2.1"
+dependencies = [
+ "log",
+ "png",
+ "rustls",
+ "rustls-rustcrypto",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "webpki-roots",
+]
+
+[[package]]
 name = "linebender_resource_handle"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

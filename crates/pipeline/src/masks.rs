@@ -153,6 +153,16 @@ pub fn shape_alpha(shape: &MaskShape, frame: &Frame, w: usize, h: usize, img: &R
             }
             smooth_plane(&mut out, 0.01 * frame_px(frame, w));
         }
+        MaskShape::Window { seg: Some(seg), edge, .. } => {
+            let e = (*edge / 100.0).clamp(-1.0, 1.0) as f32;
+            let gain = if e < 0.0 { 1.0 - 7.0 * e } else { 1.0 };
+            sample_seg(Some(seg), &[], gain, frame, w, h, &mut out);
+            if e > 0.0 {
+                smooth_plane(&mut out, e * 0.02 * frame_px(frame, w));
+            }
+        }
+        // not computed yet: nothing selected
+        MaskShape::Window { .. } => {}
         MaskShape::Object { seg, detail, edge, .. } | MaskShape::Prompt { seg, detail, edge, .. } if seg.is_some() || !detail.is_empty() => {
             // Edge: below 0 a steeper transition (up to 8× the logits), above 0 feathered (up to
             // 2 % of the long edge, so previews and exports match)
@@ -193,12 +203,13 @@ pub fn shape_alpha(shape: &MaskShape, frame: &Frame, w: usize, h: usize, img: &R
 struct SegGrid {
     logits: Vec<f32>,
     side: usize,
+    rows: usize,
     r: [f64; 4],
 }
 
 impl SegGrid {
     fn new(seg: &SegMask) -> Option<SegGrid> {
-        Some(SegGrid { logits: seg.logits()?, side: seg.side as usize, r: seg.bounds()? })
+        Some(SegGrid { logits: seg.logits()?, side: seg.side as usize, rows: seg.height(), r: seg.bounds()? })
     }
 
     fn contains(&self, n: Point) -> bool {
@@ -208,12 +219,12 @@ impl SegGrid {
     /// The bilinearly sampled logit at normalized image point `n` (cell centres at
     /// `(i + 0.5) / side` of the rectangle).
     fn logit(&self, n: Point) -> f32 {
-        let side = self.side;
-        let at = |x: usize, y: usize| self.logits.get(y.min(side - 1) * side + x.min(side - 1)).copied().unwrap_or(-16.0);
+        let (side, rows) = (self.side, self.rows);
+        let at = |x: usize, y: usize| self.logits.get(y.min(rows - 1) * side + x.min(side - 1)).copied().unwrap_or(-16.0);
         let u = (n.x - self.r[0]) / (self.r[2] - self.r[0]);
         let v = (n.y - self.r[1]) / (self.r[3] - self.r[1]);
-        let (fx, fy) = ((u * side as f64 - 0.5) as f32, (v * side as f64 - 0.5) as f32);
-        let (fx, fy) = (fx.clamp(0.0, (side - 1) as f32), fy.clamp(0.0, (side - 1) as f32));
+        let (fx, fy) = ((u * side as f64 - 0.5) as f32, (v * rows as f64 - 0.5) as f32);
+        let (fx, fy) = (fx.clamp(0.0, (side - 1) as f32), fy.clamp(0.0, (rows - 1) as f32));
         let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
         let (tx, ty) = (fx - x0 as f32, fy - y0 as f32);
         let top = at(x0, y0) * (1.0 - tx) + at(x0 + 1, y0) * tx;
@@ -505,7 +516,7 @@ mod tests {
         for shape in [
             MaskShape::Object { hint: vec![], exclude: vec![], seg: None, detail: vec![], edge: 0.0 },
             MaskShape::Prompt { text: "sky".into(), seg: None, detail: vec![], edge: 0.0 },
-            MaskShape::Prompt { text: "sky".into(), seg: Some(SegMask { side: 4, data: "damaged!".into(), rect: None }), detail: vec![], edge: 0.0 },
+            MaskShape::Prompt { text: "sky".into(), seg: Some(SegMask { side: 4, rows: 0, data: "damaged!".into(), rect: None }), detail: vec![], edge: 0.0 },
         ] {
             assert!(shape_alpha(&shape, &f, 30, 30, &img, &l, 0.0).data.iter().all(|v| *v == 0.0));
         }

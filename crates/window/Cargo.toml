@@ -1,0 +1,22 @@
+[package]
+name = "lightcraft-window"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "LightCraft AI Window mask: Gemini image-model client and mask post-processing (L3; the only network code besides the model download)"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+png = { workspace = true }
+
+# the web build has no cloud masks
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
+rustls-rustcrypto = "0.0.2-alpha"
+webpki-roots = "1"

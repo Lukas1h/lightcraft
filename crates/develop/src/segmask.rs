@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// 1 − 1.2e-7, i.e. fully in or out).
 const SCALE: f32 = 8.0;
 /// Largest grid a stored segmentation may claim (hostile input caps the allocation).
-pub const MAX_SIDE: usize = 1024;
+pub const MAX_SIDE: usize = 2048;
 
 /// A segmentation computed by a model (SAM 3 in `lightcraft-segment`): `side × side` logits
 /// over the uncropped, oriented image stretched to a square (row `y`, column `x` covers
@@ -16,6 +16,9 @@ pub const MAX_SIDE: usize = 1024;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SegMask {
     pub side: u32,
+    /// Grid rows; `0` = `side` (a square grid). Window masks store the photo's own aspect.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub rows: u32,
     pub data: String,
     /// The part of the image the grid covers, normalized `[x0, y0, x1, y1]` (`None` = all of
     /// it). A zoomed-in pass over one object covers just its surroundings, at a higher
@@ -24,12 +27,29 @@ pub struct SegMask {
     pub rect: Option<[f64; 4]>,
 }
 
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
 impl SegMask {
+    /// Grid rows (`side` for a square grid).
+    pub fn height(&self) -> usize {
+        if self.rows == 0 { self.side as usize } else { self.rows as usize }
+    }
+
+    /// From a `cols × rows` grid of logits over the whole image.
+    pub fn from_grid(cols: usize, rows: usize, logits: &[f32]) -> SegMask {
+        let n = cols.saturating_mul(rows);
+        let q: Vec<u8> = logits.iter().take(n).map(|l| ((l * SCALE).round().clamp(-127.0, 127.0) as i8) as u8).collect();
+        let z = miniz_oxide::deflate::compress_to_vec(&q, 8);
+        SegMask { side: cols as u32, rows: if rows == cols { 0 } else { rows as u32 }, data: base64_encode(&z), rect: None }
+    }
+
     /// From `side × side` logits over the whole image.
     pub fn from_logits(side: usize, logits: &[f32]) -> SegMask {
         let q: Vec<u8> = logits.iter().take(side * side).map(|l| ((l * SCALE).round().clamp(-127.0, 127.0) as i8) as u8).collect();
         let z = miniz_oxide::deflate::compress_to_vec(&q, 8);
-        SegMask { side: side as u32, data: base64_encode(&z), rect: None }
+        SegMask { side: side as u32, rows: 0, data: base64_encode(&z), rect: None }
     }
 
     /// From `side × side` logits over the part `rect` of the image.
@@ -45,13 +65,13 @@ impl SegMask {
 
     /// The logits, or `None` when the data is damaged or claims an absurd size.
     pub fn logits(&self) -> Option<Vec<f32>> {
-        let side = self.side as usize;
-        if side == 0 || side > MAX_SIDE {
+        let (side, rows) = (self.side as usize, self.height());
+        if side == 0 || rows == 0 || side > MAX_SIDE || rows > MAX_SIDE {
             return None;
         }
         let z = base64_decode(&self.data)?;
-        let q = miniz_oxide::inflate::decompress_to_vec_with_limit(&z, side * side).ok()?;
-        (q.len() == side * side).then(|| q.iter().map(|b| f32::from(*b as i8) / SCALE).collect())
+        let q = miniz_oxide::inflate::decompress_to_vec_with_limit(&z, side * rows).ok()?;
+        (q.len() == side * rows).then(|| q.iter().map(|b| f32::from(*b as i8) / SCALE).collect())
     }
 }
 
@@ -177,7 +197,7 @@ mod tests {
         assert!(m.logits().is_none(), "size mismatch");
         m.side = 100_000;
         assert!(m.logits().is_none(), "absurd size");
-        assert!(SegMask { side: 8, data: "not base64 !".into(), rect: None }.logits().is_none());
+        assert!(SegMask { side: 8, rows: 0, data: "not base64 !".into(), rect: None }.logits().is_none());
         assert!(SegMask { rect: Some([0.5, 0.0, 0.2, 1.0]), ..SegMask::from_logits(2, &[0.0; 4]) }.bounds().is_none());
     }
 }
