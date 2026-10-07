@@ -1,0 +1,40 @@
+# A quick unsigned macOS build for testing a branch (no release, no secrets, no notarization).
+# Run it from the Actions tab (or the API) and download the `lightcraft-macos` artifact: a DMG with
+# LightCraft.app (ad-hoc signed: right-click → Open the first time) and the headless CLI.
+name: mac-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: "aarch64 (Apple Silicon), x86_64 (Intel) or universal"
+        type: choice
+        options: [aarch64, x86_64, universal]
+        default: aarch64
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mac-build-${{ inputs.arch }}
+      - name: Build and package (ad-hoc signed)
+        run: packaging/macos/package.sh --arch "${{ inputs.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightcraft-macos
+          path: dist/release/*
+          if-no-files-found: error
